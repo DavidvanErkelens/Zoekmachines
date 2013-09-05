@@ -1,0 +1,851 @@
+
+<!-- saved from url=(0118)http://staff.science.uva.nl/~marx/teaching/zoekmachines/LectureNotes/Practica/MakeInvertedIndex/MakeInvertedIndex.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+      
+      
+      
+      <!--   <style type="text/css">
+      .ant,.op  {visibility:hidden;} 
+    </style> -->
+      
+      <!-- {display:none} -->
+      
+      <!-- Zet deze link weer aan als je de antwoorden wel wilt laten zien. 
+ -->
+      
+      <link href="./zoekmachines1_files/teaching.css" rel="stylesheet" type="text/css"> 
+      
+      <title>Create an Inverted Index as described in the IR book, Chapter 1 and 2</title>
+      
+   </head>
+   
+   <body>
+      
+      <h1>HowTo</h1>
+      
+      <p>Download this HTML file, and fill in your answers in the <tt>&lt;pre class='ant'&gt;</tt> elements. Safe it for yourself. When we discuss this exercise you can then easily
+         compare your answer with 
+         the given answer. Use links to data, scripts and generated output. In this way you
+         create a handy page for yourself where you can look things up again.
+      </p>
+      
+      <pre>            Your Name:
+        </pre>
+      <h1>Create an Inverted Index as described in the IR book</h1>
+      
+      <pre class="ant">Your Answer:
+        
+        </pre>
+      
+      
+      <p>The files we download and create with the scripts below can be found in the <a href="http://staff.science.uva.nl/~marx/teaching/zoekmachines/LectureNotes/Practica/MakeInvertedIndex/Shakespeare">Shakespeare folder</a>.
+      </p>
+      
+      
+      <h2>Step 1: Get a corpus</h2>
+      
+      <p>We get the works of Shakespeare from <a href="http://xml.coverpages.org/bosakShakespeare200.html">http://xml.coverpages.org/bosakShakespeare200.html</a>.
+         Our <strong>document unit (sec 2.1.2)</strong> will be individual plays of Shakespeare. That is nice, because the downloaded zip
+         file contains a file for each play. 
+         <br>
+         Here's the listing.
+      </p>
+      <pre>bash-3.2$ wget http://metalab.unc.edu/bosak/xml/eg/shaks200.zip
+--2013-03-26 09:58:18--  http://metalab.unc.edu/bosak/xml/eg/shaks200.zip
+Resolving metalab.unc.edu... 152.19.134.40
+Connecting to metalab.unc.edu|152.19.134.40|:80... connected.
+HTTP request sent, awaiting response... 301 Moved Permanently
+Location: http://www.ibiblio.org/bosak/xml/eg/shaks200.zip [following]
+--2013-03-26 09:58:19--  http://www.ibiblio.org/bosak/xml/eg/shaks200.zip
+Resolving www.ibiblio.org... 152.19.134.40, 2610:28:3090:3000:0:bad:cafe:23
+Reusing existing connection to metalab.unc.edu:80.
+HTTP request sent, awaiting response... 200 OK
+Length: 2195143 (2.1M) [application/zip]
+Saving to: `shaks200.zip'
+
+100%[==================================================================================================================================================================================================&gt;] 2,195,143   1.18M/s   in 1.8s
+
+2013-03-26 09:58:21 (1.18 MB/s) - `shaks200.zip' saved [2195143/2195143]
+
+bash-3.2$ unzip -l shaks200.zip |head
+Archive:  shaks200.zip
+  Length     Date   Time    Name
+ --------    ----   ----    ----
+   260800  07-15-99 15:00   a_and_c.xml
+   216790  07-15-99 15:00   all_well.xml
+   198449  07-15-99 15:00   as_you.xml
+      206  07-15-99 15:00   catalog
+   141345  07-15-99 15:00   com_err.xml
+   268811  07-15-99 15:00   coriolan.xml
+   255038  07-15-99 15:00   cymbelin.xml
+bash-3.2$ mkdir Shakespeare
+bash-3.2$ mv shaks200.zip Shakespeare/
+bash-3.2$ cd Shakespeare/
+bash-3.2$ unzip -q shaks200.zip
+bash-3.2$ ls -l |head
+total 10432
+-rw-r--r-- 1 marx ii  260800 1999-07-15 15:00 a_and_c.xml
+-rw-r--r-- 1 marx ii  216790 1999-07-15 15:00 all_well.xml
+-rw-r--r-- 1 marx ii  198449 1999-07-15 15:00 as_you.xml
+-rw-r--r-- 1 marx ii     206 1999-07-15 15:00 catalog
+-rw-r--r-- 1 marx ii  141345 1999-07-15 15:00 com_err.xml
+-rw-r--r-- 1 marx ii  268811 1999-07-15 15:00 coriolan.xml
+-rw-r--r-- 1 marx ii  255038 1999-07-15 15:00 cymbelin.xml
+-rw-r--r-- 1 marx ii  149559 1999-07-15 15:00 dream.xml
+-rw-r--r-- 1 marx ii    4804 1999-07-15 15:00 dsssl.dtd
+
+        </pre>
+      <p>Throw away all non XML files. Then you end up with</p>
+      <pre>bash-3.2$ ls
+a_and_c.xml   com_err.xml   dream.xml   hen_iv_1.xml  hen_vi_2.xml  hen_v.xml     lear.xml     merchant.xml  m_wives.xml   r_and_j.xml   taming.xml   titus.xml    two_gent.xml
+all_well.xml  coriolan.xml  EF          hen_iv_2.xml  hen_vi_3.xml  j_caesar.xml  lll.xml      m_for_m.xml   othello.xml   rich_iii.xml  tempest.xml  t_night.xml  win_tale.xml
+as_you.xml    cymbelin.xml  hamlet.xml  hen_vi_1.xml  hen_viii.xml  john.xml      macbeth.xml  much_ado.xml  pericles.xml  rich_ii.xml   timon.xml    troilus.xml
+bash-3.2$  
+        </pre>
+      <h2>Step 2: Cleanup: remove the XML tags</h2>
+      
+      <p>We want to make pure text files from these XML files. So we can index all words.</p>
+      
+      <p>Easy with sed: (recall that <tt>head -20</tt> shows the first 20 lines)
+      </p>
+      <pre>bash-3.2$ head -20 hamlet.xml
+&lt;?xml version="1.0"?&gt;
+&lt;!DOCTYPE PLAY SYSTEM "play.dtd"&gt;
+
+&lt;PLAY&gt;
+&lt;TITLE&gt;The Tragedy of Hamlet, Prince of Denmark&lt;/TITLE&gt;
+
+&lt;FM&gt;
+&lt;P&gt;ASCII text placed in the public domain by Moby Lexical Tools, 1992.&lt;/P&gt;
+&lt;P&gt;SGML markup by Jon Bosak, 1992-1994.&lt;/P&gt;
+&lt;P&gt;XML version by Jon Bosak, 1996-1999.&lt;/P&gt;
+&lt;P&gt;The XML markup in this version is Copyright © 1999 Jon Bosak.
+This work may freely be distributed on condition that it not be
+modified or altered in any way.&lt;/P&gt;
+&lt;/FM&gt;
+
+&lt;PERSONAE&gt;
+&lt;TITLE&gt;Dramatis Personae&lt;/TITLE&gt;
+
+&lt;PERSONA&gt;CLAUDIUS, king of Denmark. &lt;/PERSONA&gt;
+&lt;PERSONA&gt;HAMLET, son to the late, and nephew to the present king.&lt;/PERSONA&gt;
+bash-3.2$ sed 's/&lt;[^&gt;]*&gt;/ /g' hamlet.xml | head -20
+
+
+
+
+ The Tragedy of Hamlet, Prince of Denmark
+
+
+ ASCII text placed in the public domain by Moby Lexical Tools, 1992.
+ SGML markup by Jon Bosak, 1992-1994.
+ XML version by Jon Bosak, 1996-1999.
+ The XML markup in this version is Copyright © 1999 Jon Bosak.
+This work may freely be distributed on condition that it not be
+modified or altered in any way.
+
+
+
+ Dramatis Personae
+
+ CLAUDIUS, king of Denmark.
+ HAMLET, son to the late, and nephew to the present king.
+bash-3.2$         
+        </pre>
+      
+      <h2>Step 3: Tokenize</h2>
+      
+      <p>Section 2.2.1</p>
+      
+      <p>We very simply tokenize on whitespace. The original data is already whitespace normalized.
+         So we simply translate each whitespace into a newline.
+         We then get each token on a separate line. Easy for counting:
+      </p>
+      <pre> bash-3.2$ sed 's/&lt;[^&gt;]*&gt;/ /g' hamlet.xml | tr ' ' '\n' |head -20
+
+
+
+
+
+
+
+
+The
+Tragedy
+of
+Hamlet,
+Prince
+of
+Denmark
+
+
+        </pre>
+      <h2>Step 4: Normalize</h2>
+      
+      <p>Section 2.2.3</p>
+      
+      <p>We normalize very roughly. In the next one-liner we added three more steps: 1) lowercase
+         everything with <tt>tr</tt>, 2) remove trailing non-word characters with <tt>sed</tt>,
+         and 3) delete all empty lines with <tt>sed</tt>.
+      </p>
+      <pre>bash-3.2$ sed 's/&lt;[^&gt;]*&gt;/ /g' hamlet.xml | tr ' ' '\n' |tr '[:upper:]' '[:lower:]' | sed 's/\W\W*$//' |sed '/^$/d'|head
+the
+tragedy
+of
+hamlet
+prince
+of
+denmark
+ascii
+text
+placed
+bash-3.2$        
+        </pre>
+      <h1>Making the inverted index (as in Section 1.2)</h1>
+      
+      <h2>Count the tokens</h2>
+      
+      <p>Easy with <tt>sort</tt>, followed by <tt>uniq -c</tt>:
+      </p>
+      <pre>bash-3.2$ sed 's/&lt;[^&gt;]*&gt;/ /g' hamlet.xml | tr ' ' '\n' |tr '[:upper:]' '[:lower:]' | sed 's/\W\W*$//' |sed '/^$/d'|sort|uniq -c |head
+      1 &amp;#169
+      1 1992
+      1 1992-1994
+      1 1996-1999
+      1 1999
+    533 a
+      2 'a
+      1 abate
+      1 abatements
+      1 abhorred
+
+        </pre>
+      <p>The first line shows a first problem with our tokenizer: it has split words on XML
+         entities. That's a nice exercise for you to solve ;-)
+      </p>
+      
+      <p>Just to make the commands more readable we store the output of all previous steps
+         in the file <tt>hamlet.txt</tt>.
+         <br>
+         We also delete the whitespace at the beginning of each line with the last <tt>sed</tt> command in the pipe.
+      </p>
+      <pre>bash-3.2$ sed 's/&lt;[^&gt;]*&gt;/ /g' hamlet.xml | tr ' ' '\n' |tr '[:upper:]' '[:lower:]' | sed 's/\W\W*$//' |sed '/^$/d'|sort|uniq -c | sed 's/^  *//'&gt; hamlet.txt
+        </pre>
+      <h2>Preprocess file for merging into the inverted index</h2>
+      
+      
+      <p>Each document has a DocID. Here we just use the filenames. For each file X, we turn
+         the list of word counts of the form <tt>count word</tt> into  <tt>word TAB X:count</tt>.
+      </p>
+      
+      <p>We will process a lot of "spreadsheet-shaped" files, like hamlet.txt which consists
+         of 2 columns. The ideal program for that is <strong>awk</strong>. Such files are call <strong>CSV (comma separated values)</strong> files. 
+         However, the seperator between columns need not be comma, and can be anything. <br>
+         In hamlet.txt the seperator is the whitespace. We will mostly use TAB as seperator.
+         You need to tell <tt>awk</tt> (and also programs like <tt>sort</tt>) which symbol is used as seperator.
+      </p>
+      
+      <p>In order to pass a shell variable to awk, we need a bit of advanced scripting. The
+         -v option can be used to pass shell variables to awk command. 
+      </p>
+      
+      <pre>bash-3.2$ g="hamlet"
+bash-3.2$ cat hamlet.txt |awk -v DocID=$g '{print $2"\t"DocID":"$1}' |head
+&amp;#169   hamlet:1
+1992    hamlet:1
+1992-1994       hamlet:1
+1996-1999       hamlet:1
+1999    hamlet:1
+a       hamlet:533
+'a      hamlet:2
+abate   hamlet:1
+abatements      hamlet:1
+abhorred        hamlet:1
+bash-3.2$       
+        </pre>
+      <h2>Do this process for all files</h2>
+      
+      <p>We just loop over all xml files, and use the shell variable bound to the file name
+         to execute the developed script.
+      </p>
+      <pre>bash-3.2$ for f in *.xml; do  cat $f |sed 's/&lt;[^&gt;]*&gt;/ /g'  | tr ' ' '\n' |tr '[:upper:]' '[:lower:]' | sed 's/\W\W*$//' |sed '/^$/d'|sort|uniq -c| sed 's/^  *//'|awk -v DocID=$f '{print $2"\t"DocID":"$1}' &gt; $f.txt; done
+bash-3.2$ grep '^macbeth' *.txt
+macbeth.xml.txt:macbeth macbeth.xml:283
+macbeth.xml.txt:macbeth's       macbeth.xml:7
+macbeth.xml.txt:macbeth--well   macbeth.xml:1
+bash-3.2$ head macbeth.xml.txt
+&amp;#169   macbeth.xml:1
+1992    macbeth.xml:1
+1992-1994       macbeth.xml:1
+1996-1999       macbeth.xml:1
+1999    macbeth.xml:1
+a       macbeth.xml:251
+a-bed   macbeth.xml:1
+abhorred        macbeth.xml:1
+abide   macbeth.xml:2
+abjure  macbeth.xml:1
+bash-3.2$    
+        </pre>
+      <p>It is not nice to have the <tt>.xml</tt> postfix all the time. We can easily delete that using <tt>sed</tt>:
+         
+      </p>
+      <pre>bash-3.2$ f='macbeth.xml'; g=`echo $f|sed 's/\.xml//'`; echo $g
+macbeth
+bash-3.2$
+        </pre>
+      <p>Thus we include this new variable in our for loop:</p>
+      <pre>            bash-3.2$ for f in *.xml; do  g=`echo $f|sed 's/\.xml//'`; cat $f |sed 's/&lt;[^&gt;]*&gt;/ /g'  | tr ' ' '\n' |tr '[:upper:]' '[:lower:]' | sed 's/\W\W*$//' |sed '/^$/d'|sort|uniq -c| sed 's/^  *//'|awk -v DocID=$g '{print $2"\t"DocID":"$1}' &gt; $g.txt; done 
+        </pre>
+      
+      <h3>What do we have now?</h3>
+      
+      <p>For each document X (a play of Shakespeare), we have a tab-seperated file X.txt with
+         two columns.
+         <br>Each row contains a word in the first column, and a DoCID followed by a ':' followed
+         by the number of times the word occurs in document X in the second column. 
+      </p>
+      
+      
+      <h3>What do we want to make?</h3>
+      
+      <p>One inverted index with posting lists, of the following form: for each word occuring
+         in one of the documents, we have a row like this. Thus two columns, with the word
+         in the first column, and the posting list
+         consisting of DocID:WordFrequency pairs in the second column.
+      </p>
+      <pre>            love    a_and_c:38,all_well:60,as_you:112,com_err:18,coriolan:28,cymbelin:28,dream:102,hamlet:67,hen_iv_1:28,hen_iv_2:21,hen_v:40,hen_vi_1:25,hen_vi_2:17,hen_vi_3:40,hen_viii:23,j_caesar:34,john:39,lear:51,lll:100,macbeth:19,merchant:57,m_for_m:29,much_ado:90,m_wives:45,othello:77,pericles:26,r_and_j:134,rich_ii:32,rich_iii:64,taming:63,tempest:12,timon:34,titus:23,t_night:74,troilus:67,two_gent:159,win_tale:24
+        </pre>
+      <h2>Step 1: Create one index file</h2>
+      
+      <p>Depending on the algorithm we use, we either just concatenate all files, or concatenate
+         and sort  all of them:
+      </p>
+      <pre>bash-3.2$ sort  *.txt &gt; ALLShakespeare.tsv  
+bash-3.2$ grep -P '^love\t' ALLShakespeare.tsv
+love    a_and_c:38
+love    all_well:60
+love    as_you:112
+love    com_err:18
+love    coriolan:28
+love    cymbelin:28
+love    dream:102
+love    hamlet:67
+love    hen_iv_1:28
+love    hen_iv_2:21
+love    hen_v:40
+love    hen_vi_1:25
+love    hen_vi_2:17
+love    hen_vi_3:40
+love    hen_viii:23
+love    j_caesar:34
+love    john:39
+love    lear:51
+love    lll:100
+love    macbeth:19
+love    merchant:57
+love    m_for_m:29
+love    much_ado:90
+love    m_wives:45
+love    othello:77
+love    pericles:26
+love    r_and_j:134
+love    rich_ii:32
+love    rich_iii:64
+love    taming:63
+love    tempest:12
+love    timon:34
+love    titus:23
+love    t_night:74
+love    troilus:67
+love    two_gent:159
+love    win_tale:24
+bash-3.2$         
+        </pre>
+      
+      <h2>Step 2: Create the posting list.</h2>
+      
+      
+      <h3>Digression: Alternative</h3>
+      
+      <p>Below we show how to do this using arrays in awk. That is easy to program, but awk
+         uses a lot of memory. You can also walk through the file AllShakespeare.tsv line by
+         line, and keep only a small array for each word in the index in working memory.
+         Once you hit a new word, you flush your memory and output a single line. <br>
+         This only works when the file is sorted on the first column (and the first column
+         only! do this with <tt>sort -t$'\t' -k1,1</tt>) of course.
+         
+         
+         
+      </p>
+      
+      <p>Below you find an bash/awk script that uses this technique to compute total sums for
+         each group. It assumes a TAB separeted file with two columns, sorted on the first
+         column, and having a number in the second.
+         Here is an example input file and the output of a run. 
+      </p>
+      <pre>wcw-staff-167-205:awk admin$ cat test.txt
+a       1
+a       2
+a       3
+a2      1
+b       2
+b       3
+c       8
+
+wcw-staff-167-205:awk admin$ bash groupby.awk test.txt
+a 6
+a2 1
+b 5
+c 8
+wcw-staff-167-205:awk admin$
+
+            </pre>
+      <p>And this is the bash script: </p>
+      <pre># work on a file sorted on $1, group by $1 and compute the total of $2. Print for each group this total.
+# This has much less memeory requirements than the solution using an array, but of course it needs sorted input
+# it only has two variables in memory:
+#  g: the current value of $1
+#  tot: the current total of the sum of the $2 of the current group
+
+# NOTE: when the last value in the file has only one line, it and its total is not printed. Adding a newline after the last value  solves this.
+
+file=$1
+eof=`cat $file |wc -l`
+cat $file |
+awk -F$'\t' -v eof="$eof"  '{
+if (g!=$1)
+{if (g) {print g,tot}
+        ;g=$1;tot=$2
+}
+else
+{ if (NR==eof) {print g,tot+$2}
+    else {tot+=$2}
+}
+}'
+
+        </pre>
+      <h3>Create an inverted index using a hash array using awk</h3>
+      
+      <p>In the final step we create a TAB separated file with two columns. 
+         The first column contains the token. The second column contains the list of term-frequencies
+         for each file, seperated by commas.
+      </p>    
+      
+      <p>This uses an advanced  <tt>awk</tt> script which stores the term frequencies in an associative array, and then outputs
+         them. 
+         I found <a href="http://www.theunixschool.com/2012/06/awk-10-examples-to-group-data-in-csv-or.html">this explanation</a> very useful.
+         The script below is based on the last example, which is very well explained.
+         <br> We also use the <tt>awk</tt> variable <tt>OFS</tt> to set the <em>Output Field Separator</em> to a TAB.
+         
+      </p>
+      <pre>bash-3.2$ awk -F$'\t' ' BEGIN{OFS="\t";} {if(a[$1])a[$1]=a[$1]"," $2; else a[$1]=$2;}END{for (i in a)print i,a[i];}' ALLShakespeare.tsv &gt; ShakespeareInvertedIndex.tsv
+bash-3.2$ head ShakespeareInvertedIndex.tsv
+cock-a-diddle-dow       tempest:1
+yew-trees       r_and_j:1
+exceedeth       hen_iv_1:1
+magnificence--in        win_tale:1
+start'st        hen_vi_2:1
+aforehand       lll:1
+earliness       r_and_j:1
+leading coriolan:2,cymbelin:1,hen_iv_1:2,hen_v:1,hen_viii:1,john:1,lear:1,merchant:1,m_wives:1,pericles:1,rich_ii:1,rich_iii:2,titus:1,two_gent:1
+chance--i       troilus:1
+porridge        all_well:1,com_err:1,hen_vi_1:1,lear:1,lll:1,m_wives:1,tempest:1,troilus:1
+bash-3.2$
+</pre>
+      <p>Awk outputs the lines in an unexpected order. So we may sort afterwards again:</p>
+      
+      <p>Note how we tell sort that TAB is the seperator, and that it needs to sort ONLY on
+         the first column (with the --key attribute). 
+      </p>
+      <pre>bash-3.2$ sort -t$'\t' --key=1,1 ShakespeareInvertedIndex.tsv &gt; ShakespeareSortedInvertedIndex.tsv
+bash-3.2$ head ShakespeareSortedInvertedIndex.tsv
+1       hen_iv_1:1,hen_vi_1:1,hen_viii:1
+10      hen_viii:1
+&amp;#169   a_and_c:1,all_well:1,as_you:1,com_err:1,coriolan:1,cymbelin:1,dream:1,hamlet:1,hen_iv_1:1,hen_iv_2:1,hen_v:1,hen_vi_1:1,hen_vi_2:1,hen_vi_3:1,hen_viii:1,j_caesar:1,john:1,lear:1,lll:1,macbeth:1,merchant:1,m_for_m:1,much_ado:1,m_wives:1,othello:1,pericles:1,r_and_j:1,rich_ii:1,rich_iii:1,taming:1,tempest:1,timon:1,titus:1,t_night:1,troilus:1,two_gent:1,win_tale:1
+1992    a_and_c:1,all_well:1,as_you:1,com_err:1,coriolan:1,cymbelin:1,dream:1,hamlet:1,hen_iv_1:1,hen_iv_2:1,hen_v:1,hen_vi_1:1,hen_vi_2:1,hen_vi_3:1,hen_viii:1,j_caesar:1,john:1,lear:1,lll:1,macbeth:1,merchant:1,m_for_m:1,much_ado:1,m_wives:1,othello:1,pericles:1,r_and_j:1,rich_ii:1,rich_iii:1,taming:1,tempest:1,timon:1,titus:1,t_night:1,troilus:1,two_gent:1,win_tale:1
+1992-1994       a_and_c:1,all_well:1,as_you:1,com_err:1,coriolan:1,cymbelin:1,dream:1,hamlet:1,hen_iv_1:1,hen_iv_2:1,hen_v:1,hen_vi_1:1,hen_vi_2:1,hen_vi_3:1,hen_viii:1,j_caesar:1,john:1,lear:1,lll:1,macbeth:1,merchant:1,m_for_m:1,much_ado:1,m_wives:1,othello:1,pericles:1,r_and_j:1,rich_ii:1,rich_iii:1,taming:1,tempest:1,timon:1,titus:1,t_night:1,troilus:1,two_gent:1,win_tale:1
+1996-1999       a_and_c:1,all_well:1,as_you:1,com_err:1,coriolan:1,cymbelin:1,dream:1,hamlet:1,hen_iv_1:1,hen_iv_2:1,hen_v:1,hen_vi_1:1,hen_vi_2:1,hen_vi_3:1,hen_viii:1,j_caesar:1,john:1,lear:1,lll:1,macbeth:1,merchant:1,m_for_m:1,much_ado:1,m_wives:1,othello:1,pericles:1,r_and_j:1,rich_ii:1,rich_iii:1,taming:1,tempest:1,timon:1,titus:1,t_night:1,troilus:1,two_gent:1,win_tale:1
+1999    a_and_c:1,all_well:1,as_you:1,com_err:1,coriolan:1,cymbelin:1,dream:1,hamlet:1,hen_iv_1:1,hen_iv_2:1,hen_v:1,hen_vi_1:1,hen_vi_2:1,hen_vi_3:1,hen_viii:1,j_caesar:1,john:1,lear:1,lll:1,macbeth:1,merchant:1,m_for_m:1,much_ado:1,m_wives:1,othello:1,pericles:1,r_and_j:1,rich_ii:1,rich_iii:1,taming:1,tempest:1,timon:1,titus:1,t_night:1,troilus:1,two_gent:1,win_tale:1
+2       hen_iv_2:1,hen_vi_2:1,hen_viii:1
+2d      hen_iv_1:1
+2s      hen_iv_1:2
+bash-3.2$    
+        </pre>
+      <p><strong>Exercise</strong> Do the sorting with only <tt>--key=1</tt> and explain the difference.
+      </p>
+      
+      <h1>Your first search engine</h1>
+      
+      <p>Search for the search word in your inverted index, order the DocID's by the term-frequency
+         of the search word, and return these in descending order.
+      </p>
+      <pre>bash-3.2$ grep -P '^love\t' ShakespeareSortedInvertedIndex.tsv
+love    a_and_c:38,all_well:60,as_you:112,com_err:18,coriolan:28,cymbelin:28,dream:102,hamlet:67,hen_iv_1:28,hen_iv_2:21,hen_v:40,hen_vi_1:25,hen_vi_2:17,hen_vi_3:40,hen_viii:23,j_caesar:34,john:39,lear:51,lll:100,macbeth:19,merchant:57,m_for_m:29,much_ado:90,m_wives:45,othello:77,pericles:26,r_and_j:134,rich_ii:32,rich_iii:64,taming:63,tempest:12,timon:34,titus:23,t_night:74,troilus:67,two_gent:159,win_tale:24
+bash-3.2$ 
+        </pre>
+      <p>Now add the sorting. We can do this using earlier tricks: get the posting list, translate
+         comma to newlibe, and sort on the frequency (use <tt>-n -r</tt> to sort Numerically and in Reverse order).
+         We show how to do this using awk:
+         
+      </p>
+      <pre>            bash-3.2$ awk -F$'\t' '$1~/^love$/ {print $2}' ShakespeareSortedInvertedIndex.tsv| tr ',' '\n'| sort -t':' -nr --key=2,2
+two_gent:159
+r_and_j:134
+as_you:112
+dream:102
+lll:100
+much_ado:90
+othello:77
+t_night:74
+troilus:67
+hamlet:67
+rich_iii:64
+taming:63
+all_well:60
+merchant:57
+lear:51
+m_wives:45
+hen_vi_3:40
+hen_v:40
+john:39
+a_and_c:38
+timon:34
+j_caesar:34
+rich_ii:32
+m_for_m:29
+hen_iv_1:28
+cymbelin:28
+coriolan:28
+pericles:26
+hen_vi_1:25
+win_tale:24
+titus:23
+hen_viii:23
+hen_iv_2:21
+macbeth:19
+com_err:18
+hen_vi_2:17
+tempest:12
+
+        </pre>
+      <p>Of course, this can be improved, both in speed (by creating an index on the first
+         column and use that to search), and in the ranking (needed when you have more than
+         one search term). 
+      </p>
+      
+      
+      
+      <h1>Exercises</h1>
+      
+      <p><strong>First repeat all steps done above. Do it step by step from the command line, and inspect
+            what you are doing. Break down commands with pipes, so that you understand each step.
+            
+            If they are too fast, create small examples for yourself.
+            <br>
+            Then do the exercises below. You will first do them on the Shakespeare corpus. Then
+            you will have to download a corpus which is 3 orders of magnitude larger, and do the
+            same process again.
+            <br>
+            So document carefully what you have done. Maybe in a manner as done above. Maybe in
+            a script file. 
+            <br>
+            If your computer crashes or things get very slow, create a subcorpus of 10 files.
+            Test everything until it works. Then go to 100 files. Then to 1000. Then to 10 or
+            100.000. </strong></p>
+      
+      <ol>
+         
+         <li>Count the total number of tokens in the works of Shakespeare and the total number
+            of unique tokens. You can use a lot of the previously developed code.
+            <pre class="ant">Your Answer:
+        
+        </pre>
+            </li>
+         
+         <li>Look at the vocabulary. Is it OK? Propose further normalization, or better tokenization.
+            Also see Chapter 2.
+            <pre class="ant">Your Answer:
+        
+        </pre>
+            </li>
+         
+         <li>Make a new index where you lower case all words except if each letter in a word is
+            a capital. So 'Caesar' becomes 'caesar', but CAESAR remains the same.
+            <pre class="ant">Your Answer:
+        
+        </pre></li>
+         
+         <li>Use awk  to calculate the document frequency (in how many documents occurs the term)
+            for each term and the corpus frequency (how often does the term occur in the corpus)
+            for each term. 
+            Add these two values as new columns in your inverted index. <br>
+            Again <a href="http://www.theunixschool.com/2012/06/awk-10-examples-to-group-data-in-csv-or.html">the  explanation about using arrays in awk</a> will provide you with the tricks how to do this.
+            You also may want to use awk's sed-like <tt>sub</tt> function, described e.g. <a href="http://www.staff.science.uu.nl/~oostr102/docs/nawk/nawk_92.html">here</a>, to remove the DoCID's from the term-frequencies.
+            <pre class="ant">Your Answer:
+        
+        </pre>
+            
+            </li>
+         
+         <li>Create a script which produces a table with the following information: 
+            <pre>                    size of the vocabulary
+                    nr of terms with corpus frequency 1
+                    nr of terms with document frequency 1
+                    nr of terms with document frequency  equal to the number of documents in the corpus
+                    nr of terms with document frequency  half or more than the number of documents in the corpus
+                </pre>
+            <pre class="ant">Your Answer:
+        
+        </pre>
+            </li>
+         
+         <li><strong>Zipf law</strong>
+            
+            <ul>
+               
+               <li>Create a csv file containing 2 columns: word  and corpus frequency of that word. Create
+                  a row for every word in the vocabulary.
+               </li>
+               
+               <li>Order the file by corpus frequency descending.</li>
+               
+               <li>Add an additional column with row (line)-numbers. </li>
+               
+               <li>Plot the logarithm of the rwo-number on the x-axis versus the logarithm of the corpus
+                  frequency on the y-axis. 
+                  <br>
+                  Gebruik dit voorbeeld commando:
+                  <pre>                    bash-3.2$ cat hamlet.txt | sed 's/.*://'|sort -nr|head
+1145
+967
+745
+673
+564
+546
+533
+513
+465
+438
+bash-3.2$ gnuplot -persist &lt;(echo -e 'plot "-" with lines\n';cat hamlet.txt | sed 's/.*://'|sort -nr| awk '{print log(NR) " " log($1)}')
+                
+                </pre>
+                  <pre class="ant">Your Answer:
+        
+        </pre></li>
+               
+               <li>Vergelijk jouw plot met de Zipf plotjes op Wikipedia.
+                  <pre class="ant">Your Answer:
+        
+        </pre></li>
+               
+            </ul>
+         </li>
+         
+         <li>Download all Moties from <a href="http://polidocs.nl/XML/MOT/">http://polidocs.nl/XML/MOT/</a> and do everything you did above for Shakespeare again for this corpus.
+            At least answer the following queries:
+            
+            <ol>
+               
+               <li>What is the size in GB of all moties?
+                  <pre class="ant">Your Answer:
+        
+        </pre></li>
+               
+               <li>How much reduces this when you delete all markup?
+                  <pre class="ant">Your Answer:
+        
+        </pre></li>
+               
+               <li>Wat is the size of the index?
+                  <pre class="ant">Your Answer:
+        
+        </pre></li>
+               
+               <li>Time all steps and put them in a table. Use the <tt>time</tt> command in bash. Below you see how tricky this is (I sorted here the Shakespeare
+                  files as we did earlier).
+                  <pre>bash-3.2$ time sort  *.txt &gt; effe
+
+real    0m1.178s
+user    0m0.491s
+sys     0m0.025s
+bash-3.2$ time sort  *.txt &gt; effe
+
+real    0m0.784s
+user    0m0.498s
+sys     0m0.015s
+bash-3.2$ time sort  *.txt &gt; effe
+
+real    0m0.774s
+user    0m0.490s
+sys     0m0.025s
+bash-3.2$ time sort  *.txt &gt; /dev/null
+
+real    0m0.532s
+user    0m0.507s
+sys     0m0.015s
+bash-3.2$ time sort  *.txt &gt; /dev/null
+
+real    0m0.532s
+user    0m0.496s
+sys     0m0.032s
+bash-3.2$ 
+                    </pre>
+                  <pre class="ant">Your Answer:
+        
+        </pre> </li>
+               
+            </ol>
+         </li>
+         
+         <li><strong>Boolean Search engine</strong>
+            
+            <p><strong>First do these exercises for your Shakespeare collection and then do them   also for
+                  your set of Motie files.</strong></p>
+            
+            <p>We will now make a Boolean search engine as described in Chapter 1. You can program
+               this in any way you like. A good start is the first search engine that you have build
+               above.
+               
+            </p>
+            <ol>
+               
+               <li>Input: one word. Output: all documents which do NOT contain the word.
+                  <pre class="ant">Your Answer:
+        
+        </pre></li>
+               
+               <li>Input: a string of  words. Output: all documents which  contain at least one of the
+                  words. 
+                  <br>
+                  You may choose your own input format for the string.
+                  <br>
+                  Be sure not to include DocID's more often than once.
+                  <pre class="ant">Your Answer:
+        
+        </pre></li>
+               
+               <li>A Boolean search engine is not supposed to rank the documents it returns, but we can
+                  do that anyway.
+                  
+                  <ol>
+                     
+                     <li>Rank the documents returned for the OR-query in last question as follows: documents
+                        which match most words are returned first.
+                        <pre class="ant">Your Answer:
+        
+        </pre>
+                        </li>
+                     
+                     <li>Now rank the documents  by the sum for all query words of the term frequencies. 
+                        Hint: use awk and look at <a href="http://www.theunixschool.com/2012/06/awk-10-examples-to-group-data-in-csv-or.html">the  explanation about using arrays in awk</a> again.
+                        <pre class="ant">Your Answer:
+        
+        </pre>
+                        </li>
+                     
+                     <li>Now combine the two rankings. First rank on number of matching documents, and then
+                        on the sum of the term counts. Print both scores for each DocID. HINT: realize that
+                        you can specify multiple fields to sort on in sort.
+                        Like in this bit from the sort-manual:
+                        <pre>     * Sort the password file on the fifth field and ignore any leading
+     blanks.  Sort lines with equal values in field five on the numeric
+     user ID in field three.  Fields are separated by `:'.
+
+          sort -t : -k 5b,5 -k 3,3n /etc/passwd
+          sort -t : -n -k 5b,5 -k 3,3 /etc/passwd
+          sort -t : -b -k 5,5 -k 3,3n /etc/passwd
+                        </pre>
+                        <pre class="ant">Your Answer:
+        
+        </pre>
+                        </li>
+                     
+                  </ol>
+               </li>
+               
+               <li>Input: a string of  words. Output: all documents which  contain ALL of the words.
+                  
+                  <br>
+                  You may choose your own input format for the string.
+                  <pre class="ant">Your Answer:
+        
+        </pre>
+                  </li>
+               
+               <li>How would you implement a ranking for the Boolean AND? 
+                  <pre class="ant">Your Answer:
+        
+        </pre>
+                  </li>
+               
+               <li>How can you implement a "relaxed version" of Boolean AND, in which you also give results
+                  if not ALL query words are present, but as much as possible? Of course you want to
+                  rank the documents again.
+                  <pre class="ant">Your Answer:
+        
+        </pre></li>
+               
+               
+            </ol>
+         </li>
+         
+         <li><strong>Ranked Retrieval</strong> 
+            
+            <p><strong>First do these exercises for your Shakespeare collection and then do them   also for
+                  your set of Motie files.</strong></p>
+            
+            <ol>
+               
+               <li>Implement the TF-IDF function 6.8  from the IR -book. 
+                  So, given a query term t, compute for each document the score for this term, and return
+                  the documents and scores in decreasing order.
+                  HINT, use the inverted index you created before in which you have also stored the
+                  Document Frequency for each term.
+                  Awk has a lot of <a href="http://www.thegeekstuff.com/tag/awk-square-root/">useful arithmetic functions</a> for us.
+                  <pre class="ant">Your Answer:
+        
+        </pre>
+                  </li>
+               
+               <li>Implement the scoring function 6.9  from the IR -book. 
+                  So, given a query Q consisting of a number of words, compute for each document the
+                  score for this query, and return the documents and scores in decreasing order. 
+                  <pre class="ant">Your Answer:
+        
+        </pre>
+                  </li>
+               
+               <li>We now want to implement the cosine similarity function. Basically, we need to normalize
+                  the earlier TF-IDF scores for the length of the documents. We use Euclidean length
+                  for that (see section 6.3).
+                  First compute for each document, its Euclidean length. Awk has a lot of <a href="http://www.thegeekstuff.com/tag/awk-square-root/">useful arithmetic functions</a> for us.
+                  <pre class="ant">Your Answer:
+        
+        </pre></li>
+               
+               <li>Use the normalized lengths to compute the cosine-similarity between a query and a
+                  document. I.e., 6.12. Extend your scripts created for 6.8 and 6.9.
+                  <pre class="ant">Your Answer:
+        
+        </pre></li>
+               
+               <li>Now create a search engine which scores according to another famous scoring formula
+                  <a href="http://en.wikipedia.org/wiki/Okapi_BM25">Okapi BM25</a>.
+                  <pre class="ant">Your Answer:
+        
+        </pre>
+                  </li>
+               
+            </ol>
+            
+            
+            
+            
+         </li>
+         
+         
+      </ol>
+      
+   
+   
+</body></html>

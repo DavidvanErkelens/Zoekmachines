@@ -1,0 +1,23 @@
+ body {
+    font-family: Helvetica, Geneva, Arial,
+          SunSans-Regular, sans-serif;
+    background-color: #d8da3d }
+p.op:before {content: "Opdracht: ";
+      font-weight: bold;
+      font-size:larger}
+
+ 
+
+
+
+p.ant:before {content: "Antwoord: ";
+      font-weight: bold;
+      font-size:larger}
+
+
+.ant,.op, .opm { display:block;
+      border-style: solid;
+      border-width: thin;
+      width: 80%;
+      left:10%;
+      background-color: white }
